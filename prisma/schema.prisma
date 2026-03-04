@@ -17,6 +17,8 @@ model Story {
   storyStyle         String   @default("cinematic")
   voiceId            String   @default("en-US-Chirp3-HD-Aoede")
   voiceVolume        Float    @default(1.0)
+  audioUrl           String?
+  audioStatus        String   @default("none")
   musicUrl           String?
   musicVolume        Float    @default(0.15)
   subtitleStyle      String   @default("karaoke")

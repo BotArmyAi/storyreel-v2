@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import type { Scene, Render } from "@/generated/prisma/client";
 import GenerateScenesButton from "./generate-button";
+import GenerateAudioButton from "./generate-audio-button";
 
 interface StoryPageProps {
   params: Promise<{ id: string }>;
@@ -124,6 +125,17 @@ export default async function StoryPage({ params }: StoryPageProps) {
               ))}
             </ul>
           )}
+        </section>
+
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            Narration Audio
+          </h2>
+          <GenerateAudioButton
+            storyId={story.id}
+            audioUrl={story.audioUrl}
+            audioStatus={story.audioStatus}
+          />
         </section>
 
         <section className="mt-8">

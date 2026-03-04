@@ -1,5 +1,5 @@
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
+const IMAGEN_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict";
 
 export interface ImageGenerationResult {
   base64: string;
@@ -7,7 +7,7 @@ export interface ImageGenerationResult {
 }
 
 /**
- * Generate an image using Gemini 2.0 Flash Exp via the REST API.
+ * Generate an image using Google Imagen 4.0 via the REST API.
  * Returns the raw base64-encoded image and its MIME type.
  */
 export async function generateImage(
@@ -20,17 +20,18 @@ export async function generateImage(
   }
 
   const fullPrompt = styleGuide
-    ? `${styleGuide}\n\nGenerate an image for: ${prompt}`
-    : `Generate an image for: ${prompt}`;
+    ? `${styleGuide}\n\n${prompt}`
+    : prompt;
 
   const body = {
-    contents: [{ parts: [{ text: fullPrompt }] }],
-    generationConfig: {
-      responseModalities: ["TEXT", "IMAGE"],
+    instances: [{ prompt: fullPrompt }],
+    parameters: {
+      sampleCount: 1,
+      aspectRatio: "9:16",
     },
   };
 
-  const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+  const res = await fetch(`${IMAGEN_URL}?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -38,20 +39,19 @@ export async function generateImage(
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Gemini API error ${res.status}: ${text}`);
+    throw new Error(`Imagen API error ${res.status}: ${text}`);
   }
 
   const data = await res.json();
-  const parts: Array<{ inlineData?: { mimeType: string; data: string } }> =
-    data?.candidates?.[0]?.content?.parts ?? [];
+  const predictions: Array<{ bytesBase64Encoded?: string; mimeType?: string }> =
+    data?.predictions ?? [];
 
-  const imagePart = parts.find((p) => p.inlineData?.mimeType?.startsWith("image/"));
-  if (!imagePart?.inlineData) {
-    throw new Error("No image returned from Gemini");
+  if (!predictions.length || !predictions[0].bytesBase64Encoded) {
+    throw new Error("No image returned from Imagen");
   }
 
   return {
-    base64: imagePart.inlineData.data,
-    mimeType: imagePart.inlineData.mimeType,
+    base64: predictions[0].bytesBase64Encoded,
+    mimeType: predictions[0].mimeType || "image/png",
   };
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import type { Scene, Render } from "@/generated/prisma/client";
+import GenerateScenesButton from "./generate-button";
 
 interface StoryPageProps {
   params: Promise<{ id: string }>;
@@ -89,9 +90,12 @@ export default async function StoryPage({ params }: StoryPageProps) {
         </section>
 
         <section className="mt-8">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            Scenes ({story.scenes.length})
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+              Scenes ({story.scenes.length})
+            </h2>
+            <GenerateScenesButton storyId={story.id} />
+          </div>
           {story.scenes.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-500">
               No scenes generated yet.

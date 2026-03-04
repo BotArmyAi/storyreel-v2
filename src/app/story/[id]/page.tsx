@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import type { Scene, Render } from "@/generated/prisma/client";
+import type { Scene } from "@/generated/prisma/client";
 import GenerateScenesButton from "./generate-button";
 import GenerateAudioButton from "./generate-audio-button";
 import GenerateVideoButton from "./generate-video-button";
+import RenderButton from "./render-button";
 
 interface StoryPageProps {
   params: Promise<{ id: string }>;
@@ -169,30 +170,26 @@ export default async function StoryPage({ params }: StoryPageProps) {
         </section>
 
         <section className="mt-8">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            Renders ({story.renders.length})
+          <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            Render Final Video
           </h2>
-          {story.renders.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-500">No renders yet.</p>
-          ) : (
-            <ul className="mt-3 space-y-3">
-              {story.renders.map((render: Render) => (
-                <li
-                  key={render.id}
-                  className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {render.type}
-                    </span>
-                    <span className="text-xs text-zinc-500">
-                      {render.status}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <RenderButton
+            storyId={story.id}
+            hasScenes={story.scenes.some((s) => s.imageUrl || s.videoUrl)}
+            latestRender={
+              story.renders.length > 0
+                ? {
+                    id: story.renders[0].id,
+                    status: story.renders[0].status,
+                    videoUrl: story.renders[0].videoUrl,
+                    duration: story.renders[0].duration,
+                    fileSize: story.renders[0].fileSize,
+                    renderTimeMs: story.renders[0].renderTimeMs,
+                    error: story.renders[0].error,
+                  }
+                : null
+            }
+          />
         </section>
       </div>
     </div>

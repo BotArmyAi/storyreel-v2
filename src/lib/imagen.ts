@@ -1,5 +1,4 @@
-const IMAGEN_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export interface ImageGenerationResult {
   base64: string;
@@ -7,7 +6,8 @@ export interface ImageGenerationResult {
 }
 
 /**
- * Generate an image using Google Imagen 4.0 via the REST API.
+ * Generate an image using Nano Banana 2 (Gemini Flash Image) via the Gemini API.
+ * Falls back to gemini-2.0-flash-exp for image generation.
  * Returns the raw base64-encoded image and its MIME type.
  */
 export async function generateImage(
@@ -19,39 +19,46 @@ export async function generateImage(
     throw new Error("GOOGLE_API_KEY is not set");
   }
 
+  const genAI = new GoogleGenerativeAI(apiKey);
+
+  // Try Nano Banana 2 first, fall back to 2.0-flash-exp
+  const models = [
+    "gemini-2.0-flash-exp",
+  ];
+
   const fullPrompt = styleGuide
-    ? `${styleGuide}\n\n${prompt}`
-    : prompt;
+    ? `${styleGuide}\n\nGenerate a cinematic 9:16 vertical image for: ${prompt}`
+    : `Generate a cinematic 9:16 vertical image for: ${prompt}`;
 
-  const body = {
-    instances: [{ prompt: fullPrompt }],
-    parameters: {
-      sampleCount: 1,
-      aspectRatio: "9:16",
-    },
-  };
+  for (const modelName of models) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          // @ts-expect-error - responseModalities not in types yet
+          responseModalities: ["TEXT", "IMAGE"],
+        },
+      });
 
-  const res = await fetch(`${IMAGEN_URL}?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+      const result = await model.generateContent(fullPrompt);
+      const response = result.response;
+      const parts = response.candidates?.[0]?.content?.parts ?? [];
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Imagen API error ${res.status}: ${text}`);
+      const imagePart = parts.find(
+        (p) => p.inlineData?.mimeType?.startsWith("image/"),
+      );
+
+      if (imagePart?.inlineData) {
+        return {
+          base64: imagePart.inlineData.data!,
+          mimeType: imagePart.inlineData.mimeType!,
+        };
+      }
+    } catch (err) {
+      console.error(`Image gen with ${modelName} failed:`, err);
+      continue;
+    }
   }
 
-  const data = await res.json();
-  const predictions: Array<{ bytesBase64Encoded?: string; mimeType?: string }> =
-    data?.predictions ?? [];
-
-  if (!predictions.length || !predictions[0].bytesBase64Encoded) {
-    throw new Error("No image returned from Imagen");
-  }
-
-  return {
-    base64: predictions[0].bytesBase64Encoded,
-    mimeType: predictions[0].mimeType || "image/png",
-  };
+  throw new Error("No image model available — all attempts failed");
 }

@@ -22,6 +22,12 @@ interface Story {
   id: string;
   title: string;
   status: string;
+  voiceId: string;
+  voiceVolume: number;
+  musicUrl: string | null;
+  musicVolume: number;
+  subtitleStyle: string;
+  subtitleColor: string;
   scenes: Scene[];
 }
 
@@ -36,6 +42,15 @@ export default function EditorPage() {
   const [rendering, setRendering] = useState(false);
   const [regeneratingImage, setRegeneratingImage] = useState(false);
   const [generatingVideo, setGeneratingVideo] = useState(false);
+
+  // Global controls state
+  const [voiceId, setVoiceId] = useState("en-US-Chirp3-HD-Aoede");
+  const [voiceVolume, setVoiceVolume] = useState(100);
+  const [musicVolume, setMusicVolume] = useState(15);
+  const [subtitleStyle, setSubtitleStyle] = useState("karaoke");
+  const [subtitleColor, setSubtitleColor] = useState("#FFFFFF");
+  const [uploadingMusic, setUploadingMusic] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const fetchStory = useCallback(async () => {
     try {
@@ -53,6 +68,16 @@ export default function EditorPage() {
   useEffect(() => {
     fetchStory();
   }, [fetchStory]);
+
+  // Sync global controls when story loads
+  useEffect(() => {
+    if (!story) return;
+    setVoiceId(story.voiceId);
+    setVoiceVolume(Math.round(story.voiceVolume * 100));
+    setMusicVolume(Math.round(story.musicVolume * 100));
+    setSubtitleStyle(story.subtitleStyle);
+    setSubtitleColor(story.subtitleColor);
+  }, [story?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedScene = story?.scenes[selectedIndex] ?? null;
 
@@ -128,6 +153,53 @@ export default function EditorPage() {
       setError(err instanceof Error ? err.message : "Failed to generate video");
     } finally {
       setGeneratingVideo(false);
+    }
+  };
+
+  const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !story) return;
+    setUploadingMusic(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/stories/${story.id}/upload-music`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to upload music");
+      }
+      await fetchStory();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload music");
+    } finally {
+      setUploadingMusic(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (!story) return;
+    setSavingSettings(true);
+    try {
+      const res = await fetch(`/api/stories/${story.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          voiceId,
+          voiceVolume: voiceVolume / 100,
+          musicVolume: musicVolume / 100,
+          subtitleStyle,
+          subtitleColor,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save settings");
+      await fetchStory();
+    } catch {
+      setError("Failed to save settings");
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -362,6 +434,137 @@ export default function EditorPage() {
             No scenes available
           </p>
         )}
+      </div>
+
+      {/* Global Controls */}
+      <div className="border-t border-zinc-800 bg-zinc-900 px-4 pb-24 pt-4">
+        <h2 className="mb-4 text-sm font-semibold text-zinc-200">
+          Global Controls
+        </h2>
+        <div className="space-y-4">
+          {/* Voice selector */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+              Voice
+            </label>
+            <select
+              value={voiceId}
+              onChange={(e) => setVoiceId(e.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 focus:border-blue-500 focus:outline-none"
+            >
+              {[
+                "Aoede",
+                "Charon",
+                "Fenrir",
+                "Kore",
+                "Leda",
+                "Orus",
+                "Puck",
+                "Zephyr",
+              ].map((name) => (
+                <option
+                  key={name}
+                  value={`en-US-Chirp3-HD-${name}`}
+                >
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Voice volume */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+              Voice Volume — {voiceVolume}%
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={voiceVolume}
+              onChange={(e) => setVoiceVolume(Number(e.target.value))}
+              className="w-full accent-blue-500"
+            />
+          </div>
+
+          {/* Music upload */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+              Background Music
+            </label>
+            {story?.musicUrl && (
+              <p className="mb-1.5 truncate text-xs text-zinc-500">
+                Current: {story.musicUrl.split("/").pop()}
+              </p>
+            )}
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700">
+              {uploadingMusic ? "Uploading..." : "Upload Music"}
+              <input
+                type="file"
+                accept=".mp3,.wav,.ogg,.aac,.m4a"
+                onChange={handleMusicUpload}
+                disabled={uploadingMusic}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {/* Music volume */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+              Music Volume — {musicVolume}%
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={musicVolume}
+              onChange={(e) => setMusicVolume(Number(e.target.value))}
+              className="w-full accent-blue-500"
+            />
+          </div>
+
+          {/* Subtitle style */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+              Subtitle Style
+            </label>
+            <select
+              value={subtitleStyle}
+              onChange={(e) => setSubtitleStyle(e.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 focus:border-blue-500 focus:outline-none"
+            >
+              <option value="karaoke">Karaoke</option>
+              <option value="static">Static</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+
+          {/* Subtitle color */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+              Subtitle Color
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={subtitleColor}
+                onChange={(e) => setSubtitleColor(e.target.value)}
+                className="h-10 w-10 cursor-pointer rounded border border-zinc-700 bg-zinc-800"
+              />
+              <span className="text-xs text-zinc-400">{subtitleColor}</span>
+            </div>
+          </div>
+
+          {/* Save Settings */}
+          <button
+            onClick={handleSaveSettings}
+            disabled={savingSettings}
+            className="w-full rounded-lg bg-zinc-700 py-2.5 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-600 disabled:opacity-50"
+          >
+            {savingSettings ? "Saving..." : "Save Settings"}
+          </button>
+        </div>
       </div>
 
       {/* Fixed Footer */}

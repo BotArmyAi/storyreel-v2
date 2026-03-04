@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Story {
+  id                 String   @id @default(uuid())
+  title              String
+  text               String
+  status             String   @default("draft")
+  error              String?
+  styleGuide         String?
+  storyStyle         String   @default("cinematic")
+  voiceId            String   @default("en-US-Chirp3-HD-Aoede")
+  voiceVolume        Float    @default(1.0)
+  musicUrl           String?
+  musicVolume        Float    @default(0.15)
+  subtitleStyle      String   @default("karaoke")
+  subtitleColor      String   @default("#FFFFFF")
+  subtitleHighlight  String   @default("#2563EB")
+  subtitlePosition   String   @default("center")
+  subtitleSize       String   @default("medium")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  scenes  Scene[]
+  renders Render[]
+}
+
+model Scene {
+  id           String   @id @default(uuid())
+  storyId      String
+  sceneNumber  Int
+  narration    String?
+  subtitle     String?
+  imagePrompt  String?
+  imageUrl     String?
+  imageStatus  String   @default("pending")
+  videoUrl     String?
+  videoStatus  String   @default("none")
+  motionFlag   String   @default("still")
+  duration     Float    @default(5.0)
+  transition   String   @default("crossfade")
+  sfxSuggestion String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+}
+
+model Render {
+  id           String   @id @default(uuid())
+  storyId      String
+  type         String   @default("preview")
+  status       String   @default("pending")
+  videoUrl     String?
+  duration     Float?
+  fileSize     Int?
+  renderTimeMs Int?
+  error        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+}

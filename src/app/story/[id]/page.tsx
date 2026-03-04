@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { Scene, Render } from "@/generated/prisma/client";
 import GenerateScenesButton from "./generate-button";
 import GenerateAudioButton from "./generate-audio-button";
+import GenerateVideoButton from "./generate-video-button";
 
 interface StoryPageProps {
   params: Promise<{ id: string }>;
@@ -95,7 +96,15 @@ export default async function StoryPage({ params }: StoryPageProps) {
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
               Scenes ({story.scenes.length})
             </h2>
-            <GenerateScenesButton storyId={story.id} />
+            <div className="flex items-center gap-2">
+              <GenerateScenesButton storyId={story.id} />
+              <GenerateVideoButton
+                storyId={story.id}
+                hasVideoScenes={story.scenes.some(
+                  (s) => s.motionFlag === "video" && s.imageUrl,
+                )}
+              />
+            </div>
           </div>
           {story.scenes.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-500">
@@ -112,14 +121,35 @@ export default async function StoryPage({ params }: StoryPageProps) {
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">
                       Scene {scene.sceneNumber}
                     </span>
-                    <span className="text-xs text-zinc-500">
-                      {scene.imageStatus}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {scene.motionFlag === "video" && (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                          video
+                        </span>
+                      )}
+                      <span className="text-xs text-zinc-500">
+                        {scene.imageStatus}
+                      </span>
+                      {scene.videoStatus !== "none" && (
+                        <span className="text-xs text-zinc-500">
+                          | video: {scene.videoStatus}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {scene.narration && (
                     <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
                       {scene.narration}
                     </p>
+                  )}
+                  {scene.videoUrl && (
+                    <video
+                      controls
+                      className="mt-2 w-full rounded-lg"
+                      src={scene.videoUrl}
+                    >
+                      Your browser does not support the video element.
+                    </video>
                   )}
                 </li>
               ))}

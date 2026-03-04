@@ -34,6 +34,8 @@ export default function EditorPage() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [rendering, setRendering] = useState(false);
+  const [regeneratingImage, setRegeneratingImage] = useState(false);
+  const [generatingVideo, setGeneratingVideo] = useState(false);
 
   const fetchStory = useCallback(async () => {
     try {
@@ -86,6 +88,46 @@ export default function EditorPage() {
       setError("Failed to save scene");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRegenerateImage = async () => {
+    if (!selectedScene || !story) return;
+    setRegeneratingImage(true);
+    try {
+      const res = await fetch(
+        `/api/stories/${story.id}/scenes/${selectedScene.id}/regenerate-image`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to regenerate image");
+      }
+      await fetchStory();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to regenerate image");
+    } finally {
+      setRegeneratingImage(false);
+    }
+  };
+
+  const handleGenerateVideo = async () => {
+    if (!selectedScene || !story) return;
+    setGeneratingVideo(true);
+    try {
+      const res = await fetch(
+        `/api/stories/${story.id}/scenes/${selectedScene.id}/generate-video`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to generate video");
+      }
+      await fetchStory();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate video");
+    } finally {
+      setGeneratingVideo(false);
     }
   };
 
@@ -296,6 +338,24 @@ export default function EditorPage() {
                 </p>
               </div>
             )}
+
+            {/* Scene action buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleRegenerateImage}
+                disabled={regeneratingImage || !selectedScene.imagePrompt}
+                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {regeneratingImage ? "Regenerating..." : "Regenerate Image"}
+              </button>
+              <button
+                onClick={handleGenerateVideo}
+                disabled={generatingVideo || !selectedScene.imageUrl}
+                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {generatingVideo ? "Generating..." : "Make Video"}
+              </button>
+            </div>
           </div>
         ) : (
           <p className="text-center text-sm text-zinc-500">

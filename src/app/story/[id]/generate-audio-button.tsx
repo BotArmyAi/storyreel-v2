@@ -46,7 +46,7 @@ export default function GenerateAudioButton({
         <button
           onClick={handleGenerate}
           disabled={loading}
-          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading
             ? "Generating Audio..."
@@ -63,9 +63,11 @@ export default function GenerateAudioButton({
       </div>
 
       {audioUrl && (
-        <audio controls className="w-full" src={audioUrl}>
-          Your browser does not support the audio element.
-        </audio>
+        <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+          <audio controls className="w-full" src={audioUrl}>
+            Your browser does not support the audio element.
+          </audio>
+        </div>
       )}
 
       {error && (

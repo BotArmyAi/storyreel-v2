@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -53,8 +53,15 @@ export default function EditorPage() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [previewingVoice, setPreviewingVoice] = useState(false);
   const [voiceAudioUrl, setVoiceAudioUrl] = useState<string | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchStory = useCallback(async () => {
+    setLoading(true);
+    setTimedOut(false);
+    setError(null);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setTimedOut(true), 10000);
     try {
       const res = await fetch(`/api/stories/${params.id}`);
       if (!res.ok) throw new Error("Failed to load story");
@@ -64,11 +71,15 @@ export default function EditorPage() {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     }
   }, [params.id]);
 
   useEffect(() => {
     fetchStory();
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, [fetchStory]);
 
   // Sync global controls when story loads
@@ -247,8 +258,30 @@ export default function EditorPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
-        <p className="text-zinc-400">Loading editor...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-zinc-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-blue-500" />
+        <p className="text-sm text-zinc-400">Loading editor...</p>
+        {timedOut && (
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-xs text-zinc-500">
+              Taking longer than expected.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => fetchStory()}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+              >
+                Retry
+              </button>
+              <Link
+                href={`/story/${params.id}`}
+                className="text-sm text-zinc-400 hover:text-zinc-200"
+              >
+                &larr; Back to story
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

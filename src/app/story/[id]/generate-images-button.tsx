@@ -5,13 +5,10 @@ import { useRouter } from "next/navigation";
 
 interface Props {
   storyId: string;
-  hasVideoScenes: boolean;
+  hasScenes: boolean;
 }
 
-export default function GenerateVideoButton({
-  storyId,
-  hasVideoScenes,
-}: Props) {
+export default function GenerateImagesButton({ storyId, hasScenes }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,17 +16,14 @@ export default function GenerateVideoButton({
   async function handleGenerate() {
     setLoading(true);
     setError(null);
-
     try {
-      const res = await fetch(`/api/stories/${storyId}/generate-video`, {
+      const res = await fetch(`/api/stories/${storyId}/generate-images`, {
         method: "POST",
       });
-
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error ?? "Video generation failed");
+        throw new Error(data.error ?? "Image generation failed");
       }
-
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -38,16 +32,16 @@ export default function GenerateVideoButton({
     }
   }
 
-  if (!hasVideoScenes) return null;
+  if (!hasScenes) return null;
 
   return (
     <div>
       <button
         onClick={handleGenerate}
         disabled={loading}
-        className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {loading ? "Generating Videos..." : "Generate All Videos"}
+        {loading ? "Generating Images..." : "Generate All Images"}
       </button>
       {error && (
         <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>

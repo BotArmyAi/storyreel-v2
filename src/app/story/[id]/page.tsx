@@ -3,12 +3,47 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import type { Scene } from "@/generated/prisma/client";
 import GenerateScenesButton from "./generate-button";
+import GenerateImagesButton from "./generate-images-button";
 import GenerateAudioButton from "./generate-audio-button";
 import GenerateVideoButton from "./generate-video-button";
 import RenderButton from "./render-button";
+import SceneActions from "./scene-actions";
 
 interface StoryPageProps {
   params: Promise<{ id: string }>;
+}
+
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  draft: { label: "Draft", color: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400" },
+  generating: { label: "Generating", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300" },
+  scenes_ready: { label: "Scenes Ready", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+  audio_ready: { label: "Audio Ready", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+  rendering: { label: "Rendering", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300" },
+  completed: { label: "Completed", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+  error: { label: "Error", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300" },
+};
+
+const SCENE_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  pending: { label: "Pending", color: "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" },
+  generating: { label: "Generating", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300" },
+  ready: { label: "Ready", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+  completed: { label: "Ready", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+  error: { label: "Error", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300" },
+  none: { label: "None", color: "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" },
+};
+
+function formatVoiceName(voiceId: string): string {
+  const match = voiceId.match(/Chirp3-HD-(\w+)$/);
+  return match ? match[1] : voiceId;
+}
+
+function getStatusBadge(status: string, map: Record<string, { label: string; color: string }>) {
+  const entry = map[status] ?? { label: status, color: "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" };
+  return (
+    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${entry.color}`}>
+      {entry.label}
+    </span>
+  );
 }
 
 export default async function StoryPage({ params }: StoryPageProps) {
@@ -41,9 +76,7 @@ export default async function StoryPage({ params }: StoryPageProps) {
             <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">
               {story.title}
             </h1>
-            <span className="rounded-full bg-zinc-200 px-3 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              {story.status}
-            </span>
+            {getStatusBadge(story.status, STATUS_LABELS)}
           </div>
 
           <p className="mt-1 text-sm text-zinc-500">
@@ -83,12 +116,12 @@ export default async function StoryPage({ params }: StoryPageProps) {
             <div>
               <dt className="text-zinc-500">Voice</dt>
               <dd className="font-medium text-zinc-900 dark:text-zinc-100">
-                {story.voiceId}
+                {formatVoiceName(story.voiceId)}
               </dd>
             </div>
             <div>
               <dt className="text-zinc-500">Subtitles</dt>
-              <dd className="font-medium text-zinc-900 dark:text-zinc-100">
+              <dd className="font-medium capitalize text-zinc-900 dark:text-zinc-100">
                 {story.subtitleStyle}
               </dd>
             </div>
@@ -106,8 +139,12 @@ export default async function StoryPage({ params }: StoryPageProps) {
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
               Scenes ({story.scenes.length})
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <GenerateScenesButton storyId={story.id} />
+              <GenerateImagesButton
+                storyId={story.id}
+                hasScenes={story.scenes.length > 0}
+              />
               <GenerateVideoButton
                 storyId={story.id}
                 hasVideoScenes={story.scenes.some(
@@ -127,40 +164,71 @@ export default async function StoryPage({ params }: StoryPageProps) {
                   key={scene.id}
                   className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      Scene {scene.sceneNumber}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {scene.motionFlag === "video" && (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
-                          video
-                        </span>
-                      )}
-                      <span className="text-xs text-zinc-500">
-                        {scene.imageStatus}
-                      </span>
-                      {scene.videoStatus !== "none" && (
-                        <span className="text-xs text-zinc-500">
-                          | video: {scene.videoStatus}
-                        </span>
+                  <div className="flex gap-4">
+                    {/* Scene thumbnail */}
+                    <div className="flex-shrink-0">
+                      {scene.imageUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={scene.imageUrl}
+                          alt={`Scene ${scene.sceneNumber}`}
+                          className="h-20 w-28 rounded-md object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-20 w-28 items-center justify-center rounded-md bg-zinc-100 dark:bg-zinc-900">
+                          <span className="text-xs text-zinc-400">No image</span>
+                        </div>
                       )}
                     </div>
+
+                    {/* Scene content */}
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                            Scene {scene.sceneNumber}
+                          </span>
+                          {scene.motionFlag === "video" && (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                              video
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(scene.imageStatus, SCENE_STATUS_LABELS)}
+                          {scene.videoStatus !== "none" && (
+                            <span className="flex items-center gap-1">
+                              <span className="text-xs text-zinc-400">vid:</span>
+                              {getStatusBadge(scene.videoStatus, SCENE_STATUS_LABELS)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {scene.narration && (
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                          {scene.narration}
+                        </p>
+                      )}
+
+                      {scene.videoUrl && (
+                        <video
+                          controls
+                          playsInline
+                          className="w-full rounded-lg"
+                          src={scene.videoUrl}
+                        />
+                      )}
+
+                      <SceneActions
+                        storyId={story.id}
+                        sceneId={scene.id}
+                        hasImagePrompt={!!scene.imagePrompt}
+                        hasImage={!!scene.imageUrl}
+                        imagePrompt={scene.imagePrompt}
+                      />
+                    </div>
                   </div>
-                  {scene.narration && (
-                    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                      {scene.narration}
-                    </p>
-                  )}
-                  {scene.videoUrl && (
-                    <video
-                      controls
-                      className="mt-2 w-full rounded-lg"
-                      src={scene.videoUrl}
-                    >
-                      Your browser does not support the video element.
-                    </video>
-                  )}
                 </li>
               ))}
             </ul>

@@ -51,6 +51,8 @@ export default function EditorPage() {
   const [subtitleColor, setSubtitleColor] = useState("#FFFFFF");
   const [uploadingMusic, setUploadingMusic] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [previewingVoice, setPreviewingVoice] = useState(false);
+  const [voiceAudioUrl, setVoiceAudioUrl] = useState<string | null>(null);
 
   const fetchStory = useCallback(async () => {
     try {
@@ -203,6 +205,31 @@ export default function EditorPage() {
     }
   };
 
+  const handlePreviewVoice = async () => {
+    setPreviewingVoice(true);
+    try {
+      // Revoke old blob URL
+      if (voiceAudioUrl) URL.revokeObjectURL(voiceAudioUrl);
+
+      const res = await fetch("/api/preview-voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voiceId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to preview voice");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setVoiceAudioUrl(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to preview voice");
+    } finally {
+      setPreviewingVoice(false);
+    }
+  };
+
   const handleRender = async () => {
     if (!story) return;
     setRendering(true);
@@ -270,8 +297,11 @@ export default function EditorPage() {
           {previewSrc ? (
             selectedScene?.videoUrl ? (
               <video
-                key={selectedScene.id}
+                key={selectedScene.id + "-video"}
                 controls
+                playsInline
+                // @ts-expect-error -- webkit-playsinline for iOS Safari
+                webkit-playsinline=""
                 className="absolute inset-0 h-full w-full object-contain"
                 src={selectedScene.videoUrl}
               />
@@ -283,22 +313,27 @@ export default function EditorPage() {
                   alt={`Scene ${selectedScene?.sceneNumber}`}
                   className="absolute inset-0 h-full w-full object-contain"
                 />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/50 text-white/80">
-                    <svg
-                      className="ml-1 h-7 w-7"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                </div>
               </>
             )
           ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
               <p className="text-sm text-zinc-600">No preview available</p>
+            </div>
+          )}
+
+          {/* Subtitle overlay */}
+          {subtitleStyle !== "none" && selectedScene?.subtitle && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
+              <span
+                className="rounded px-3 py-1.5 text-center text-sm font-semibold"
+                style={{
+                  color: subtitleColor,
+                  backgroundColor: "rgba(0, 0, 0, 0.6)",
+                  textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+                }}
+              >
+                {selectedScene.subtitle}
+              </span>
             </div>
           )}
         </div>
@@ -447,29 +482,48 @@ export default function EditorPage() {
             <label className="mb-1.5 block text-xs font-medium text-zinc-400">
               Voice
             </label>
-            <select
-              value={voiceId}
-              onChange={(e) => setVoiceId(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 focus:border-blue-500 focus:outline-none"
-            >
-              {[
-                "Aoede",
-                "Charon",
-                "Fenrir",
-                "Kore",
-                "Leda",
-                "Orus",
-                "Puck",
-                "Zephyr",
-              ].map((name) => (
-                <option
-                  key={name}
-                  value={`en-US-Chirp3-HD-${name}`}
-                >
-                  {name}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={voiceId}
+                onChange={(e) => setVoiceId(e.target.value)}
+                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 focus:border-blue-500 focus:outline-none"
+              >
+                {[
+                  "Aoede",
+                  "Charon",
+                  "Fenrir",
+                  "Kore",
+                  "Leda",
+                  "Orus",
+                  "Puck",
+                  "Zephyr",
+                ].map((name) => (
+                  <option
+                    key={name}
+                    value={`en-US-Chirp3-HD-${name}`}
+                  >
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handlePreviewVoice}
+                disabled={previewingVoice}
+                className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:opacity-50"
+              >
+                {previewingVoice ? "Loading..." : "Preview"}
+              </button>
+            </div>
+            {voiceAudioUrl && (
+              <audio
+                key={voiceAudioUrl}
+                controls
+                playsInline
+                autoPlay
+                className="mt-2 w-full"
+                src={voiceAudioUrl}
+              />
+            )}
           </div>
 
           {/* Voice volume */}

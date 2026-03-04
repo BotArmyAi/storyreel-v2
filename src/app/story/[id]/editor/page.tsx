@@ -300,8 +300,7 @@ export default function EditorPage() {
                 key={selectedScene.id + "-video"}
                 controls
                 playsInline
-                // @ts-expect-error -- webkit-playsinline for iOS Safari
-                webkit-playsinline=""
+                
                 className="absolute inset-0 h-full w-full object-contain"
                 src={selectedScene.videoUrl}
               />

@@ -55,6 +55,8 @@ export default function EditorPage() {
   const [voiceAudioUrl, setVoiceAudioUrl] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sceneStripRef = useRef<HTMLDivElement>(null);
+  const [showScrollHint, setShowScrollHint] = useState(false);
 
   const fetchStory = useCallback(async () => {
     setLoading(true);
@@ -91,6 +93,17 @@ export default function EditorPage() {
     setSubtitleStyle(story.subtitleStyle);
     setSubtitleColor(story.subtitleColor);
   }, [story?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Check if scene strip is scrollable for fade hint
+  useEffect(() => {
+    const el = sceneStripRef.current;
+    if (!el) return;
+    const check = () => setShowScrollHint(el.scrollWidth > el.clientWidth);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [story?.scenes.length]);
 
   const selectedScene = story?.scenes[selectedIndex] ?? null;
 
@@ -324,337 +337,358 @@ export default function EditorPage() {
         </button>
       </header>
 
-      {/* Video Preview Area - 16:9 */}
-      <div className="relative w-full bg-black">
-        <div className="relative aspect-video w-full">
-          {previewSrc ? (
-            selectedScene?.videoUrl ? (
-              <video
-                key={selectedScene.id + "-video"}
-                controls
-                playsInline
-                
-                className="absolute inset-0 h-full w-full object-contain"
-                src={selectedScene.videoUrl}
-              />
-            ) : (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewSrc}
-                  alt={`Scene ${selectedScene?.sceneNumber}`}
-                  className="absolute inset-0 h-full w-full object-contain"
-                />
-              </>
-            )
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
-              <p className="text-sm text-zinc-600">No preview available</p>
-            </div>
-          )}
-
-          {/* Subtitle overlay */}
-          {subtitleStyle !== "none" && selectedScene?.subtitle && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
-              <span
-                className="rounded px-3 py-1.5 text-center text-sm font-semibold"
-                style={{
-                  color: subtitleColor,
-                  backgroundColor: "rgba(0, 0, 0, 0.6)",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-                }}
-              >
-                {selectedScene.subtitle}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Scene Strip - Horizontal scrollable */}
-      <div className="border-y border-zinc-800 bg-zinc-900">
-        <div className="flex gap-2 overflow-x-auto px-3 py-3 scrollbar-none">
-          {story.scenes.map((scene, index) => (
-            <button
-              key={scene.id}
-              onClick={() => setSelectedIndex(index)}
-              className={`relative flex-shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
-                index === selectedIndex
-                  ? "border-blue-500"
-                  : "border-zinc-700 hover:border-zinc-500"
-              }`}
-              style={{ width: 72, height: 48 }}
-            >
-              {scene.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={scene.imageUrl}
-                  alt={`Scene ${scene.sceneNumber}`}
-                  className="h-full w-full object-cover"
-                />
+      {/* Desktop: Two-column layout / Mobile: Stacked */}
+      <div className="flex flex-1 flex-col lg:flex-row lg:overflow-hidden">
+        {/* Left Column: Video Preview (desktop 60%) */}
+        <div className="flex items-center justify-center bg-black lg:w-[60%]">
+          <div className="relative w-full max-w-[400px] lg:mx-auto">
+            <div className="relative aspect-[9/16] max-h-[300px] w-full lg:max-h-[500px]">
+              {previewSrc ? (
+                selectedScene?.videoUrl ? (
+                  <video
+                    key={selectedScene.id + "-video"}
+                    controls
+                    playsInline
+                    className="absolute inset-0 h-full w-full object-contain"
+                    src={selectedScene.videoUrl}
+                  />
+                ) : (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previewSrc}
+                      alt={`Scene ${selectedScene?.sceneNumber}`}
+                      className="absolute inset-0 h-full w-full object-contain"
+                    />
+                  </>
+                )
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-zinc-800">
-                  <span className="text-xs text-zinc-500">
-                    {scene.sceneNumber}
+                <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
+                  <p className="text-sm text-zinc-600">Select a scene to preview</p>
+                </div>
+              )}
+
+              {/* Subtitle overlay */}
+              {subtitleStyle !== "none" && selectedScene?.subtitle && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
+                  <span
+                    className="rounded px-3 py-1.5 text-center text-sm font-semibold"
+                    style={{
+                      color: subtitleColor,
+                      backgroundColor: "rgba(0, 0, 0, 0.6)",
+                      textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+                    }}
+                  >
+                    {selectedScene.subtitle}
                   </span>
                 </div>
               )}
-              <span className="absolute bottom-0 left-0 bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-zinc-300">
-                {scene.sceneNumber}
-              </span>
-            </button>
-          ))}
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Selected Scene Panel */}
-      <div className="flex-1 overflow-y-auto px-4 pb-24 pt-4">
-        {selectedScene ? (
-          <div className="space-y-4">
-            {/* Scene header */}
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-zinc-200">
-                Scene {selectedScene.sceneNumber}
-              </h2>
-              {selectedScene.motionFlag === "video" && (
-                <span className="rounded-full bg-emerald-900 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                  video
-                </span>
-              )}
-              <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
-                {selectedScene.duration}s
-              </span>
-            </div>
-
-            {/* Image thumbnail */}
-            {selectedScene.imageUrl && (
-              <div className="overflow-hidden rounded-lg">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={selectedScene.imageUrl}
-                  alt={`Scene ${selectedScene.sceneNumber}`}
-                  className="w-full rounded-lg"
-                />
-              </div>
-            )}
-
-            {/* Narration textarea */}
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-400">
-                Narration
-              </label>
-              <textarea
-                value={selectedScene.narration ?? ""}
-                onChange={(e) => updateScene("narration", e.target.value)}
-                rows={4}
-                className="w-full resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-blue-500 focus:outline-none"
-                placeholder="Enter narration text..."
-              />
-            </div>
-
-            {/* Subtitle field */}
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-400">
-                Subtitle
-              </label>
-              <input
-                type="text"
-                value={selectedScene.subtitle ?? ""}
-                onChange={(e) => updateScene("subtitle", e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-blue-500 focus:outline-none"
-                placeholder="Enter subtitle text..."
-              />
-            </div>
-
-            {/* Image prompt (read-only) */}
-            {selectedScene.imagePrompt && (
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-zinc-400">
-                  Image Prompt
-                </label>
-                <p className="rounded-lg bg-zinc-900 px-3 py-2.5 text-xs text-zinc-500">
-                  {selectedScene.imagePrompt}
-                </p>
-              </div>
-            )}
-
-            {/* Scene action buttons */}
-            <div className="flex gap-2">
-              <button
-                onClick={handleRegenerateImage}
-                disabled={regeneratingImage || !selectedScene.imagePrompt}
-                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {regeneratingImage ? "Regenerating..." : "Regenerate Image"}
-              </button>
-              <button
-                onClick={handleGenerateVideo}
-                disabled={generatingVideo || !selectedScene.imageUrl}
-                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {generatingVideo ? "Generating..." : "Make Video"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <p className="text-center text-sm text-zinc-500">
-            No scenes available
-          </p>
-        )}
-      </div>
-
-      {/* Global Controls */}
-      <div className="border-t border-zinc-800 bg-zinc-900 px-4 pb-24 pt-4">
-        <h2 className="mb-4 text-sm font-semibold text-zinc-200">
-          Global Controls
-        </h2>
-        <div className="space-y-4">
-          {/* Voice selector */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
-              Voice
-            </label>
-            <div className="flex gap-2">
-              <select
-                value={voiceId}
-                onChange={(e) => setVoiceId(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 focus:border-blue-500 focus:outline-none"
-              >
-                {[
-                  "Aoede",
-                  "Charon",
-                  "Fenrir",
-                  "Kore",
-                  "Leda",
-                  "Orus",
-                  "Puck",
-                  "Zephyr",
-                ].map((name) => (
-                  <option
-                    key={name}
-                    value={`en-US-Chirp3-HD-${name}`}
-                  >
-                    {name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={handlePreviewVoice}
-                disabled={previewingVoice}
-                className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:opacity-50"
-              >
-                {previewingVoice ? "Loading..." : "Preview"}
-              </button>
-            </div>
-            {voiceAudioUrl && (
-              <audio
-                key={voiceAudioUrl}
-                controls
-                playsInline
-                autoPlay
-                className="mt-2 w-full"
-                src={voiceAudioUrl}
-              />
-            )}
-          </div>
-
-          {/* Voice volume */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
-              Voice Volume — {voiceVolume}%
-            </label>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={voiceVolume}
-              onChange={(e) => setVoiceVolume(Number(e.target.value))}
-              className="w-full accent-blue-500"
-            />
-          </div>
-
-          {/* Music upload */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
-              Background Music
-            </label>
-            {story?.musicUrl && (
-              <p className="mb-1.5 truncate text-xs text-zinc-500">
-                Current: {story.musicUrl.split("/").pop()}
-              </p>
-            )}
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700">
-              {uploadingMusic ? "Uploading..." : "Upload Music"}
-              <input
-                type="file"
-                accept=".mp3,.wav,.ogg,.aac,.m4a"
-                onChange={handleMusicUpload}
-                disabled={uploadingMusic}
-                className="hidden"
-              />
-            </label>
-          </div>
-
-          {/* Music volume */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
-              Music Volume — {musicVolume}%
-            </label>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={musicVolume}
-              onChange={(e) => setMusicVolume(Number(e.target.value))}
-              className="w-full accent-blue-500"
-            />
-          </div>
-
-          {/* Subtitle style */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
-              Subtitle Style
-            </label>
-            <select
-              value={subtitleStyle}
-              onChange={(e) => setSubtitleStyle(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 focus:border-blue-500 focus:outline-none"
+        {/* Right Column: Scene strip + Scene details + Global controls (desktop 40%) */}
+        <div className="flex flex-1 flex-col overflow-hidden lg:w-[40%]">
+          {/* Scene Strip - Horizontal scrollable */}
+          <div className="relative border-y border-zinc-800 bg-zinc-900">
+            <div
+              ref={sceneStripRef}
+              className="flex gap-2 overflow-x-auto px-3 py-3 scrollbar-none"
             >
-              <option value="karaoke">Karaoke</option>
-              <option value="static">Static</option>
-              <option value="none">None</option>
-            </select>
+              {story.scenes.map((scene, index) => (
+                <button
+                  key={scene.id}
+                  onClick={() => setSelectedIndex(index)}
+                  className={`relative flex-shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
+                    index === selectedIndex
+                      ? "border-blue-500"
+                      : "border-zinc-700 hover:border-zinc-500"
+                  }`}
+                  style={{ width: 72, height: 48 }}
+                >
+                  {scene.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={scene.imageUrl}
+                      alt={`Scene ${scene.sceneNumber}`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-zinc-800">
+                      <span className="text-xs text-zinc-500">
+                        {scene.sceneNumber}
+                      </span>
+                    </div>
+                  )}
+                  <span className="absolute bottom-0 left-0 bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-zinc-300">
+                    {scene.sceneNumber}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {/* Scroll fade hint on mobile */}
+            {showScrollHint && (
+              <div className="pointer-events-none absolute bottom-0 right-0 top-0 w-8 bg-gradient-to-l from-zinc-900 to-transparent lg:hidden" />
+            )}
           </div>
 
-          {/* Subtitle color */}
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
-              Subtitle Color
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="color"
-                value={subtitleColor}
-                onChange={(e) => setSubtitleColor(e.target.value)}
-                className="h-10 w-10 cursor-pointer rounded border border-zinc-700 bg-zinc-800"
-              />
-              <span className="text-xs text-zinc-400">{subtitleColor}</span>
+          {/* Scrollable panel: Scene details + Global controls */}
+          <div className="flex-1 overflow-y-auto pb-20">
+            {/* Selected Scene Panel */}
+            <div className="px-4 pt-4">
+              {selectedScene ? (
+                <div className="space-y-4">
+                  {/* Scene header */}
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold text-zinc-200">
+                      Scene {selectedScene.sceneNumber}
+                    </h2>
+                    {selectedScene.motionFlag === "video" && (
+                      <span className="rounded-full bg-emerald-900 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                        video
+                      </span>
+                    )}
+                    <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
+                      {selectedScene.duration}s
+                    </span>
+                  </div>
+
+                  {/* Image thumbnail */}
+                  {selectedScene.imageUrl && (
+                    <div className="overflow-hidden rounded-lg">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={selectedScene.imageUrl}
+                        alt={`Scene ${selectedScene.sceneNumber}`}
+                        className="w-full rounded-lg"
+                      />
+                    </div>
+                  )}
+
+                  {/* Narration textarea */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+                      Narration
+                    </label>
+                    <textarea
+                      value={selectedScene.narration ?? ""}
+                      onChange={(e) => updateScene("narration", e.target.value)}
+                      rows={4}
+                      className="w-full resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-blue-500 focus:outline-none"
+                      placeholder="Enter narration text..."
+                    />
+                  </div>
+
+                  {/* Subtitle field */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+                      Subtitle
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedScene.subtitle ?? ""}
+                      onChange={(e) => updateScene("subtitle", e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-blue-500 focus:outline-none"
+                      placeholder="Enter subtitle text..."
+                    />
+                  </div>
+
+                  {/* Image prompt (read-only) */}
+                  {selectedScene.imagePrompt && (
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+                        Image Prompt
+                      </label>
+                      <p className="rounded-lg bg-zinc-900 px-3 py-2.5 text-xs text-zinc-500">
+                        {selectedScene.imagePrompt}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Scene action buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleRegenerateImage}
+                      disabled={regeneratingImage || !selectedScene.imagePrompt}
+                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {regeneratingImage ? "Regenerating..." : "Regenerate Image"}
+                    </button>
+                    <button
+                      onClick={handleGenerateVideo}
+                      disabled={generatingVideo || !selectedScene.imageUrl}
+                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {generatingVideo ? "Generating..." : "Make Video"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-center text-sm text-zinc-500">
+                  No scenes available
+                </p>
+              )}
+            </div>
+
+            {/* Global Controls */}
+            <div className="border-t border-zinc-800 bg-zinc-900 mt-4 px-4 pb-4 pt-4">
+              <h2 className="mb-4 text-sm font-semibold text-zinc-200">
+                Global Controls
+              </h2>
+              <div className="space-y-4">
+                {/* Voice selector */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+                    Voice
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={voiceId}
+                      onChange={(e) => setVoiceId(e.target.value)}
+                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 focus:border-blue-500 focus:outline-none"
+                    >
+                      {[
+                        "Aoede",
+                        "Charon",
+                        "Fenrir",
+                        "Kore",
+                        "Leda",
+                        "Orus",
+                        "Puck",
+                        "Zephyr",
+                      ].map((name) => (
+                        <option
+                          key={name}
+                          value={`en-US-Chirp3-HD-${name}`}
+                        >
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handlePreviewVoice}
+                      disabled={previewingVoice}
+                      className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:opacity-50"
+                    >
+                      {previewingVoice ? "Loading..." : "Preview"}
+                    </button>
+                  </div>
+                  {voiceAudioUrl && (
+                    <audio
+                      key={voiceAudioUrl}
+                      controls
+                      playsInline
+                      autoPlay
+                      className="mt-2 w-full"
+                      src={voiceAudioUrl}
+                    />
+                  )}
+                </div>
+
+                {/* Voice volume */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+                    Voice Volume — {voiceVolume}%
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={voiceVolume}
+                    onChange={(e) => setVoiceVolume(Number(e.target.value))}
+                    className="w-full accent-blue-500"
+                  />
+                </div>
+
+                {/* Music upload */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+                    Background Music
+                  </label>
+                  {story?.musicUrl && (
+                    <p className="mb-1.5 truncate text-xs text-zinc-500">
+                      Current: {story.musicUrl.split("/").pop()}
+                    </p>
+                  )}
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700">
+                    {uploadingMusic ? "Uploading..." : "Upload Music"}
+                    <input
+                      type="file"
+                      accept=".mp3,.wav,.ogg,.aac,.m4a"
+                      onChange={handleMusicUpload}
+                      disabled={uploadingMusic}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Music volume */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+                    Music Volume — {musicVolume}%
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={musicVolume}
+                    onChange={(e) => setMusicVolume(Number(e.target.value))}
+                    className="w-full accent-blue-500"
+                  />
+                </div>
+
+                {/* Subtitle style */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+                    Subtitle Style
+                  </label>
+                  <select
+                    value={subtitleStyle}
+                    onChange={(e) => setSubtitleStyle(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="karaoke">Karaoke</option>
+                    <option value="static">Static</option>
+                    <option value="none">None</option>
+                  </select>
+                </div>
+
+                {/* Subtitle color */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+                    Subtitle Color
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={subtitleColor}
+                      onChange={(e) => setSubtitleColor(e.target.value)}
+                      className="h-10 w-10 cursor-pointer rounded border border-zinc-700 bg-zinc-800"
+                    />
+                    <div
+                      className="h-6 w-6 rounded border border-zinc-600"
+                      style={{ backgroundColor: subtitleColor }}
+                    />
+                    <span className="text-xs text-zinc-400">{subtitleColor}</span>
+                  </div>
+                </div>
+
+                {/* Save Settings */}
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={savingSettings}
+                  className="w-full rounded-lg bg-zinc-700 py-2.5 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-600 disabled:opacity-50"
+                >
+                  {savingSettings ? "Saving..." : "Save Settings"}
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* Save Settings */}
-          <button
-            onClick={handleSaveSettings}
-            disabled={savingSettings}
-            className="w-full rounded-lg bg-zinc-700 py-2.5 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-600 disabled:opacity-50"
-          >
-            {savingSettings ? "Saving..." : "Save Settings"}
-          </button>
         </div>
       </div>
 
-      {/* Fixed Footer */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-zinc-800 bg-zinc-950 px-4 py-3">
+      {/* Sticky Footer - Render Button */}
+      <div className="sticky bottom-0 border-t border-zinc-800 bg-zinc-950 px-4 py-3">
         <button
           onClick={handleRender}
           disabled={rendering || story.scenes.length === 0}

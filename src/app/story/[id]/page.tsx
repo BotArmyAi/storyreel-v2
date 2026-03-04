@@ -49,6 +49,15 @@ export default async function StoryPage({ params }: StoryPageProps) {
           <p className="mt-1 text-sm text-zinc-500">
             Created {new Date(story.createdAt).toLocaleDateString()}
           </p>
+
+          {story.scenes.length > 0 && (
+            <Link
+              href={`/story/${story.id}/editor`}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+            >
+              Open Editor
+            </Link>
+          )}
         </div>
 
         <section className="mt-8">

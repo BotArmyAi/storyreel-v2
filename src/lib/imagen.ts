@@ -6,8 +6,8 @@ export interface ImageGenerationResult {
 }
 
 /**
- * Generate an image using Nano Banana 2 (Gemini Flash Image) via the Gemini API.
- * Falls back to gemini-2.0-flash-exp for image generation.
+ * Generate an image using Nano Banana 2 (Gemini 3.1 Flash Image) via the Gemini API.
+ * Falls back to Nano Banana Pro if needed.
  * Returns the raw base64-encoded image and its MIME type.
  */
 export async function generateImage(
@@ -21,9 +21,10 @@ export async function generateImage(
 
   const genAI = new GoogleGenerativeAI(apiKey);
 
-  // Try Nano Banana 2 first, fall back to 2.0-flash-exp
+  // Try Nano Banana 2 first, fall back to Pro
   const models = [
-    "gemini-2.0-flash-exp",
+    "gemini-3.1-flash-image-preview",
+    "gemini-3-pro-image-preview",
   ];
 
   const fullPrompt = styleGuide
@@ -37,6 +38,11 @@ export async function generateImage(
         generationConfig: {
           // @ts-expect-error - responseModalities not in types yet
           responseModalities: ["TEXT", "IMAGE"],
+          // @ts-expect-error - imageConfig not in types yet
+          imageConfig: {
+            aspectRatio: "9:16",
+            imageSize: "2K",
+          },
         },
       });
 
